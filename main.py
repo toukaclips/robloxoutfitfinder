@@ -88,7 +88,7 @@ TITLE = r"""
 
 def main():
 
-    # ids.txt löschen
+    # ids.txt löschen / leeren
     with open("ids.txt", "w", encoding="utf-8"):
         pass
 
@@ -96,24 +96,115 @@ def main():
     type_gradient_pinkblue(TITLE)
     print()
 
-    # animierter Input
-    user_id = typewriter_input("Enter Roblox UserID: ")
+    # animierter Input: entweder eine numerische ID oder ein Username
+    user_input = typewriter_input("Enter Roblox UserID or Username: ").strip()
 
-    # Username abrufen
-    user_info = requests.get(f"https://users.roblox.com/v1/users/{user_id}")
-    if user_info.status_code == 200:
-        username = user_info.json().get("name", "UnknownUser")
+    if not user_input:
+        status("Keine Eingabe erkannt. Neustart...")
+        time.sleep(1)
+        os.system("cls" if os.name == "nt" else "clear")
+        time.sleep(0.2)
+        main()
+        return
+
+    # Falls numerisch -> direkt als ID verwenden
+    if user_input.isdigit():
+        user_id = user_input
+        # Username abrufen (nur zur Anzeige)
+        try:
+            user_info = requests.get(f"https://users.roblox.com/v1/users/{user_id}", timeout=10)
+            if user_info.status_code == 200:
+                username = user_info.json().get("name", "UnknownUser")
+            else:
+                username = "UnknownUser"
+        except Exception:
+            username = "UnknownUser"
+
     else:
-        username = "UnknownUser"
+        # Eingabe ist kein Zahl: nehme an, es ist ein Username -> ID ermitteln (moderner POST-Endpoint)
+        username_candidate = user_input
+        status(f"Looking up username '{username_candidate}'...")
+        try:
+            lookup_url = "https://users.roblox.com/v1/usernames/users"
+            payload = {"usernames": [username_candidate], "excludeBannedUsers": False}
+            headers = {"Content-Type": "application/json"}
+            lookup = requests.post(lookup_url, json=payload, headers=headers, timeout=10)
+
+            if lookup.status_code == 200:
+                j = lookup.json()
+                # Die Antwort enthält ein Feld "data" mit Einträgen
+                data_list = j.get("data", [])
+                if data_list:
+                    entry = data_list[0]
+                    # falls matchType "exact" oder "startsWith" etc. wir nehmen den ersten Eintrag
+                    uid = entry.get("id")
+                    uname = entry.get("name") or entry.get("username") or username_candidate
+                    if uid:
+                        user_id = str(uid)
+                        username = uname
+                        status(f"Found @{username} -> ID {user_id}")
+                    else:
+                        status("Username not found. Bitte überprüfe die Eingabe.")
+                        print()
+                        type_gradient_greenwhite("Press ENTER to restart the process...")
+                        input()
+                        time.sleep(1)
+                        os.system("cls" if os.name == "nt" else "clear")
+                        time.sleep(0.2)
+                        main()
+                        return
+                else:
+                    status("Username not found. Bitte überprüfe die Eingabe.")
+                    print()
+                    type_gradient_greenwhite("Press ENTER to restart the process...")
+                    input()
+                    time.sleep(1)
+                    os.system("cls" if os.name == "nt" else "clear")
+                    time.sleep(0.2)
+                    main()
+                    return
+            else:
+                status(f"API error while resolving username (HTTP {lookup.status_code}).")
+                print()
+                type_gradient_greenwhite("Press ENTER to restart the process...")
+                input()
+                time.sleep(1)
+                os.system("cls" if os.name == "nt" else "clear")
+                time.sleep(0.2)
+                main()
+                return
+
+        except requests.exceptions.RequestException:
+            status("Network error while resolving username.")
+            print()
+            type_gradient_greenwhite("Press ENTER to restart the process...")
+            input()
+            time.sleep(1)
+            os.system("cls" if os.name == "nt" else "clear")
+            time.sleep(0.2)
+            main()
+            return
 
     status(f"Requesting outfits for @{username} [{user_id}]...")
+
     time.sleep(COOLDOWN_SECONDS)
 
     # -------------------------------------------------------
     #   ALLE OUTFITS MIT EINEM CALL LADEN (itemsPerPage=500)
     # -------------------------------------------------------
     url = f"https://avatar.roblox.com/v1/users/{user_id}/outfits?itemsPerPage=500"
-    response = requests.get(url)
+    try:
+        response = requests.get(url, timeout=10)
+    except Exception:
+        status("Network error – could not retrieve outfits.")
+        print()
+        type_gradient_greenwhite("Press ENTER to restart the process...")
+        input()
+        time.sleep(1)
+        os.system("cls" if os.name == "nt" else "clear")
+        time.sleep(0.2)
+        main()
+        return
 
     if response.status_code != 200:
         status("API error – could not retrieve outfits.")
