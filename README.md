@@ -31,4 +31,4 @@ Enter Roblox UserID or Username: @username
 [+] Requesting outfits...
 [+] xxx total outfits found
 [+] xx editable outfits found
-[+] Done! Saved in format: id -- name (and embeds sent for editable outfits)
+[+] Done! Saved in format: id -- name (and webhooks sent for editable outfits)
