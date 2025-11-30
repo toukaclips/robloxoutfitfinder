@@ -5,18 +5,25 @@ import os
 import msvcrt
 from colorama import init, Style
 import ctypes
+import json
+
+
+DISCORD_WEBHOOK = "YOUR_WEBHOOK" #put your own webhook from discord here
+TYPE_SPEED = 0.01 #typewriter speed
+COOLDOWN_SECONDS = 3 #cooldown beetween saving new id to ids.txt
+
 
 def set_console_size(width, height):
     STD_OUTPUT_HANDLE = -11
     hOut = ctypes.windll.kernel32.GetStdHandle(STD_OUTPUT_HANDLE)
 
-    # Puffergröße
+
     class COORD(ctypes.Structure):
         _fields_ = [("X", ctypes.c_short), ("Y", ctypes.c_short)]
     size = COORD(width, height)
     ctypes.windll.kernel32.SetConsoleScreenBufferSize(hOut, size)
 
-    # Fenstergröße
+
     class SMALL_RECT(ctypes.Structure):
         _fields_ = [("Left", ctypes.c_short),
                     ("Top", ctypes.c_short),
@@ -25,18 +32,16 @@ def set_console_size(width, height):
     rect = SMALL_RECT(0, 0, width-1, height-1)
     ctypes.windll.kernel32.SetConsoleWindowInfo(hOut, True, ctypes.byref(rect))
 
-# Aufruf
-set_console_size(79, 30)
 
+try:
+    set_console_size(79, 30)
+except Exception:
+    pass
 
 init()
 
 BLUE = "\033[94m"
 RESET = "\033[0m"
-
-TYPE_SPEED = 0.01
-COOLDOWN_SECONDS = 2
-
 
 
 def type_gradient_greenwhite(text):
@@ -46,7 +51,7 @@ def type_gradient_greenwhite(text):
     length = max(1, len(text))
 
     for i, char in enumerate(text):
-        t = i / (length - 1)
+        t = i / (length - 1) if length > 1 else 0
         r = int(start[0] + (end[0] - start[0]) * t)
         g = int(start[1] + (end[1] - start[1]) * t)
         b = int(start[2] + (end[2] - start[2]) * t)
@@ -73,7 +78,7 @@ def type_gradient_pinkblue(text):
     for line in lines:
         length = max(1, len(line))
         for i, char in enumerate(line):
-            t = i / (length - 1)
+            t = i / (length - 1) if length > 1 else 0
             r = int(pink[0] + (blue[0] - pink[0]) * t)
             g = int(pink[1] + (blue[1] - pink[1]) * t)
             b = int(pink[2] + (blue[2] - pink[2]) * t)
@@ -93,7 +98,7 @@ def typewriter_input(prompt_text):
     length = max(1, len(prompt_text))
 
     for i, char in enumerate(prompt_text):
-        t = i / (length - 1)
+        t = i / (length - 1) if length > 1 else 0
         r = int(start[0] + (end[0] - start[0]) * t)
         g = int(start[1] + (end[1] - start[1]) * t)
         b = int(start[2] + (end[2] - start[2]) * t)
@@ -111,12 +116,68 @@ TITLE = r"""
                                 .gg/worldvoice
 """
 
+def get_outfit_thumbnail_url(outfit_id, size="420x420"):
+    """
+    Holt die Thumbnail-URL für ein Outfit über die thumbnails.roblox.com API.
+    Gibt None zurück, falls nicht verfügbar / fehlerhaft.
+    """
+    try:
+
+        thumb_api = f"https://thumbnails.roblox.com/v1/users/outfits?userOutfitIds={outfit_id}&size={size}&format=Png&isCircular=false"
+        r = requests.get(thumb_api, timeout=10)
+        if r.status_code != 200:
+            return None
+        j = r.json()
+        data = j.get("data", [])
+        if not data:
+            return None
+
+        el = data[0]
+
+        if el.get("state") != "Completed":
+            return None
+        image_url = el.get("imageUrl")
+        if not image_url:
+            return None
+
+        return image_url
+    except Exception:
+        return None
+
+
+def send_discord_webhook_embed(webhook_url, title, description, image_url=None, footer_text=None):
+    """
+    Sendet ein Embed an den Discord Webhook.
+    """
+    embed = {
+        "title": title,
+        "description": description,
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
+    }
+    if footer_text:
+        embed["footer"] = {"text": footer_text}
+    if image_url:
+        embed["image"] = {"url": image_url}
+
+    payload = {"embeds": [embed]}
+
+    headers = {"Content-Type": "application/json"}
+    try:
+        resp = requests.post(webhook_url, data=json.dumps(payload), headers=headers, timeout=10)
+        if resp.status_code in (200, 204):
+            return True
+        else:
+
+            return False
+    except Exception:
+        return False
+
 
 def main():
     with open("ids.txt", "w", encoding="utf-8"):
         pass
 
-    # Titel animiert ausgeben
+
     type_gradient_pinkblue(TITLE)
     print()
 
@@ -207,7 +268,6 @@ def main():
 
     time.sleep(COOLDOWN_SECONDS)
 
-
     url = f"https://avatar.roblox.com/v1/users/{user_id}/outfits?itemsPerPage=500"
     try:
         response = requests.get(url, timeout=10)
@@ -252,13 +312,29 @@ def main():
 
         lines.append(f"{oid} -- {name}")
 
+
+        title = f"OutfitName: {name}"
+        description = f"```{oid}```"
+
+        image_url = get_outfit_thumbnail_url(oid, size="420x420")
+        if image_url:
+
+            ok = send_discord_webhook_embed(DISCORD_WEBHOOK, title, description, image_url=image_url, footer_text=f"From @{username}")
+        else:
+
+            ok = send_discord_webhook_embed(DISCORD_WEBHOOK, title, description, image_url=None, footer_text=f"From @{username}")
+
+        if not ok:
+            status(f"Webhook send failed for outfit {oid} (HTTP error or rate-limited). Continuing...")
+
+
         if i < len(editable):
             time.sleep(COOLDOWN_SECONDS)
 
     with open("ids.txt", "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
-    status("Done! Saved in format: id -- name")
+    status("Done! Saved in format: id -- name (and embeds sent for editable outfits)")
 
     print()
     type_gradient_greenwhite("Press any key to restart the process...")
