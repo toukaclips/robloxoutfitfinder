@@ -23,12 +23,12 @@ def animate_title(text):
 
         for i in range(len(text), 1, -1):
             ctypes.windll.kernel32.SetConsoleTitleW(text[:i-1])
-            time.sleep(0.1)
+            time.sleep(0.15)
 
 
         for i in range(2, len(text)+1):
             ctypes.windll.kernel32.SetConsoleTitleW(text[:i])
-            time.sleep(0.05)
+            time.sleep(0.1)
 
 
 threading.Thread(target=animate_title, args=("by @toukaclips",), daemon=True).start()
@@ -222,5 +222,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
