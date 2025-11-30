@@ -9,28 +9,28 @@ import ctypes
 import json
 
 
-DISCORD_WEBHOOK = ""
-TYPE_SPEED = 0.01
-COOLDOWN_SECONDS = 3
+DISCORD_WEBHOOK = "YOUR_WEBHOOK" #put your discord webhook here
+TYPE_SPEED = 0.01 #typewriter speed
+COOLDOWN_SECONDS = 3 #cooldown between fetching new outfits
 
 
 def animate_title(text):
     while True:
-        # Voller Text
+
         ctypes.windll.kernel32.SetConsoleTitleW(text)
         time.sleep(1)
 
-        # Löschen von rechts nach links bis nur "b" übrig ist
+
         for i in range(len(text), 1, -1):
             ctypes.windll.kernel32.SetConsoleTitleW(text[:i-1])
             time.sleep(0.1)
 
-        # Wieder nach rechts wachsen bis kompletter Text
+
         for i in range(2, len(text)+1):
             ctypes.windll.kernel32.SetConsoleTitleW(text[:i])
             time.sleep(0.05)
 
-# Start im Hintergrund
+
 threading.Thread(target=animate_title, args=("by @toukaclips",), daemon=True).start()
 
 
@@ -62,7 +62,7 @@ init()
 BLUE = "\033[94m"
 RESET = "\033[0m"
 
-# ---------- UTILS ----------
+
 def type_gradient_greenwhite(text):
     start, end = (0, 255, 0), (255, 255, 255)
     length = max(1, len(text))
@@ -146,7 +146,7 @@ def send_discord_webhook_embed(webhook_url, title, description, image_url=None, 
     except Exception:
         return False
 
-# ---------- MAIN FUNCTION ----------
+
 def main():
     with open("ids.txt", "w", encoding="utf-8"): pass
     type_gradient_pinkblue(TITLE)
@@ -219,7 +219,8 @@ def main():
     os.system("cls")
     main()
 
-# ---------- ENTRY POINT ----------
+
 if __name__ == "__main__":
     main()
+
 
